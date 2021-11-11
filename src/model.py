@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-nclasses = 20 
+nclasses = 20
+
 
 class Net(nn.Module):
     def __init__(self):
