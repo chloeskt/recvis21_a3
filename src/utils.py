@@ -31,10 +31,10 @@ def show_images_with_labels(train_dataloader):
         break
 
 
-def visualize_model(model, val_dataloader, device, num_images=12):
+def visualize_model(model, val_dataloader, device, num_images=12, figsize=(15, 15)):
     model.eval()
     images_so_far = 0
-    fig = plt.figure(figsize=(15,15))
+    fig = plt.figure(figsize=figsize)
 
     with torch.no_grad():
         for i, (inputs, labels) in enumerate(val_dataloader):

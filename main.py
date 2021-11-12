@@ -1,5 +1,8 @@
 import argparse
+import copy
 import os
+import time
+
 import torch
 import torch.optim as optim
 from torch.optim import lr_scheduler
@@ -26,12 +29,12 @@ parser.add_argument(
 parser.add_argument(
     "--epochs",
     type=int,
-    default=10,
+    default=50,
     metavar="N",
     help="number of epochs to train (default: 10)",
 )
 parser.add_argument(
-    "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)"
+    "--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.1)"
 )
 parser.add_argument(
     "--momentum",
@@ -43,7 +46,7 @@ parser.add_argument(
 parser.add_argument(
     "--scheduler_step",
     type=int,
-    default=2,
+    default=5,
     metavar="S",
     help="Scheduler step (default: 10)",
 )
@@ -83,13 +86,15 @@ if not os.path.isdir(args.experiment):
 from src.data import data_transforms
 
 train_loader = torch.utils.data.DataLoader(
-    datasets.ImageFolder(args.data + "/train_images", transform=data_transforms),
+    datasets.ImageFolder(
+        args.data + "/train_images", transform=data_transforms["train"]
+    ),
     batch_size=args.batch_size,
     shuffle=True,
     num_workers=0,
 )
 val_loader = torch.utils.data.DataLoader(
-    datasets.ImageFolder(args.data + "/val_images", transform=data_transforms),
+    datasets.ImageFolder(args.data + "/val_images", transform=data_transforms["val"]),
     batch_size=args.batch_size,
     shuffle=False,
     num_workers=0,
@@ -110,13 +115,13 @@ else:
 # Add weight decay, early stopping, LRScheduler
 # Add gradient clipping
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+# optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
-# optimizer = torch.optim.Adam(
-#             model.parameters(),
-#             lr=args.lr,
-#             weight_decay=0.2,
-#         )
+optimizer = torch.optim.Adam(
+    model.parameters(),
+    lr=args.lr,
+    weight_decay=0.2,
+)
 
 # Decay LR by a factor of 0.1 every 10 epochs
 scheduler = lr_scheduler.StepLR(
@@ -191,9 +196,93 @@ def validation():
     )
 
 
+def train_model(model, optimizer, scheduler, num_epochs=25):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    since = time.time()
+    best_acc = 0.0
+
+    for epoch in range(num_epochs):
+        print("Epoch {}/{}".format(epoch, num_epochs - 1))
+        print("-" * 10)
+
+        # Each epoch has a training and validation phase
+        for phase in ["train", "val"]:
+            if phase == "train":
+                dataloader = train_loader
+                model.train()  # Set model to training mode
+            else:
+                dataloader = val_loader
+                model.eval()  # Set model to evaluate mode
+
+            running_loss = 0.0
+            running_corrects = 0
+
+            # Iterate over data.
+            for inputs, labels in dataloader:
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+
+                # zero the parameter gradients
+                optimizer.zero_grad()
+
+                # forward
+                # track history if only in train
+                with torch.set_grad_enabled(phase == "train"):
+                    outputs = model(inputs)
+                    _, preds = torch.max(outputs, 1)
+                    criterion = torch.nn.CrossEntropyLoss(reduction="mean")
+                    loss = criterion(outputs, labels)
+                    running_loss += loss.data.item()
+
+                    # get the index of the max log-probability
+                    pred = outputs.data.max(1, keepdim=True)[1]
+                    running_corrects += pred.eq(labels.data.view_as(pred)).cpu().sum()
+
+                    # backward + optimize only if in training phase
+                    if phase == "train":
+                        loss.backward()
+                        optimizer.step()
+                        scheduler.step()
+
+                # # statistics
+                # running_loss += loss.item() * inputs.size(0)
+                # running_corrects += torch.sum(preds == labels.data)
+
+            epoch_loss = running_loss / len(dataloader.dataset)
+            epoch_acc = running_corrects.double() / len(dataloader.dataset)
+
+            print("{} Loss: {:.4f} Acc: {:.4f}".format(phase, epoch_loss, epoch_acc))
+
+            # deep copy the model
+            if phase == "val" and epoch_acc > best_acc:
+                print("Accucary is better: ", epoch_acc)
+                best_acc = epoch_acc
+                model_file = args.experiment + "/model_" + "acc_" + str(best_acc.item()) + ".pth"
+                torch.save(model.state_dict(), model_file)
+                best_model_wts = copy.deepcopy(model.state_dict())
+
+        print()
+
+    time_elapsed = time.time() - since
+    print(
+        "Training complete in {:.0f}m {:.0f}s".format(
+            time_elapsed // 60, time_elapsed % 60
+        )
+    )
+    print("Best val Acc: {:4f}".format(best_acc))
+
+    # load best model weights
+    model.load_state_dict(best_model_wts)
+    return model
+
+
 for epoch in range(1, args.epochs + 1):
-    train(epoch)
-    validation()
+    # train(epoch)
+    # validation()
+
+    train_model(model, optimizer, scheduler, num_epochs=args.epochs)
+
     model_file = args.experiment + "/model_" + str(epoch) + ".pth"
     torch.save(model.state_dict(), model_file)
     print(
