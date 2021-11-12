@@ -8,8 +8,6 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 from torchvision import datasets
 
-# TODO: setup Tensorboard
-
 # Training settings
 parser = argparse.ArgumentParser(description="RecVis A3 training script")
 parser.add_argument(
@@ -29,24 +27,24 @@ parser.add_argument(
 parser.add_argument(
     "--epochs",
     type=int,
-    default=50,
+    default=10,
     metavar="N",
     help="number of epochs to train (default: 10)",
 )
 parser.add_argument(
-    "--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.1)"
+    "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)"
 )
 parser.add_argument(
     "--momentum",
     type=float,
-    default=0.5,
+    default=0.9,
     metavar="M",
     help="SGD momentum (default: 0.5)",
 )
 parser.add_argument(
     "--scheduler_step",
     type=int,
-    default=5,
+    default=2,
     metavar="S",
     help="Scheduler step (default: 10)",
 )
@@ -83,7 +81,7 @@ if not os.path.isdir(args.experiment):
     os.makedirs(args.experiment)
 
 # Data initialization and loading
-from src.data import data_transforms
+from src import data_transforms
 
 train_loader = torch.utils.data.DataLoader(
     datasets.ImageFolder(
@@ -102,7 +100,7 @@ val_loader = torch.utils.data.DataLoader(
 
 # Neural network and optimizer
 # We define neural net in model.py so that it can be reused by the evaluate.py script
-from src.model import Net
+from src import Net
 
 model = Net()
 if use_cuda:
@@ -115,13 +113,13 @@ else:
 # Add weight decay, early stopping, LRScheduler
 # Add gradient clipping
 
-# optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=args.lr,
-    weight_decay=0.2,
-)
+# optimizer = torch.optim.Adam(
+#     model.parameters(),
+#     lr=args.lr,
+#     weight_decay=0.2,
+# )
 
 # Decay LR by a factor of 0.1 every 10 epochs
 scheduler = lr_scheduler.StepLR(
