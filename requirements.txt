@@ -1,3 +1,9 @@
-torch
-torchvision
-tqdm
+jupyter==1.0.0
+jupyterlab==3.2.3
+kaggle==1.5.12
+matplotlib==3.4.3
+opencv-python==4.5.4.58
+torch==1.10.0
+torchsummary==1.5.1
+torchvision==0.11.1
+tqdm==4.62.3
