@@ -2,7 +2,10 @@ import argparse
 import os
 import torch
 import torch.optim as optim
+from torch.optim import lr_scheduler
 from torchvision import datasets
+
+# TODO: setup Tensorboard
 
 # Training settings
 parser = argparse.ArgumentParser(description="RecVis A3 training script")
@@ -16,9 +19,9 @@ parser.add_argument(
 parser.add_argument(
     "--batch-size",
     type=int,
-    default=64,
+    default=32,  # 64
     metavar="B",
-    help="input batch size for training (default: 64)",
+    help="input batch size for training (default: 32)",
 )
 parser.add_argument(
     "--epochs",
@@ -28,7 +31,7 @@ parser.add_argument(
     help="number of epochs to train (default: 10)",
 )
 parser.add_argument(
-    "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.01)"
+    "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)"
 )
 parser.add_argument(
     "--momentum",
@@ -36,6 +39,20 @@ parser.add_argument(
     default=0.5,
     metavar="M",
     help="SGD momentum (default: 0.5)",
+)
+parser.add_argument(
+    "--scheduler_step",
+    type=int,
+    default=2,
+    metavar="S",
+    help="Scheduler step (default: 10)",
+)
+parser.add_argument(
+    "--gamma",
+    type=float,
+    default=0.1,
+    metavar="S",
+    help="Scheduler gamma (default: 0.1)",
 )
 parser.add_argument(
     "--seed", type=int, default=1, metavar="S", help="random seed (default: 1)"
@@ -89,11 +106,28 @@ if use_cuda:
 else:
     print("Using CPU")
 
+# TODO: use another optimizer such as Adam and changes the parameters
+# Add weight decay, early stopping, LRScheduler
+# Add gradient clipping
+
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+
+# optimizer = torch.optim.Adam(
+#             model.parameters(),
+#             lr=args.lr,
+#             weight_decay=0.2,
+#         )
+
+# Decay LR by a factor of 0.1 every 10 epochs
+scheduler = lr_scheduler.StepLR(
+    optimizer, step_size=args.scheduler_step, gamma=args.gamma
+)
 
 
 def train(epoch):
     model.train()
+    train_loss = 0
+    correct = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         if use_cuda:
             data, target = data.cuda(), target.cuda()
@@ -101,8 +135,17 @@ def train(epoch):
         output = model(data)
         criterion = torch.nn.CrossEntropyLoss(reduction="mean")
         loss = criterion(output, target)
+        # sum up batch loss
+        train_loss += loss.data.item()
+
         loss.backward()
         optimizer.step()
+        scheduler.step()
+
+        # get the index of the max log-probability
+        pred = output.data.max(1, keepdim=True)[1]
+        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+
         if batch_idx % args.log_interval == 0:
             print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
@@ -113,6 +156,13 @@ def train(epoch):
                     loss.data.item(),
                 )
             )
+            # print(
+            #     "Train current overall loss: ",
+            #     train_loss / len(train_loader.dataset),
+            #     "\n",
+            #     "Train current accuracy: ",
+            #     100.0 * correct / len(train_loader.dataset),
+            # )
 
 
 def validation():
