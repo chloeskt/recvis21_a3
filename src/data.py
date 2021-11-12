@@ -12,7 +12,7 @@ data_transforms = {
     "train": transforms.Compose(
         [
             transforms.Resize((64, 64)),
-            # transforms.RandomHorizontalFlip(p=0.3),
+            transforms.RandomHorizontalFlip(p=0.3),
             # transforms.RandomGrayscale(p=0.4),
             transforms.RandomApply(
                 torch.nn.ModuleList(
@@ -27,9 +27,9 @@ data_transforms = {
                 ),
                 p=0.5,
             ),
-            # transforms.RandomPerspective(distortion_scale=0.4, p=0.5),
+            transforms.RandomPerspective(distortion_scale=0.4, p=0.5),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             # TODO: add data augmentation
         ]
     ),
@@ -37,7 +37,7 @@ data_transforms = {
         [
             transforms.Resize((64, 64)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     ),
     "test": transforms.Compose(
