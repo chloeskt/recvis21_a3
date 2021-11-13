@@ -1,3 +1,4 @@
+import pickle
 import zipfile
 import os
 
@@ -8,6 +9,9 @@ import torchvision.transforms as transforms
 # by default, we resize the images to 64 x 64 in size
 # and normalize them to mean = 0 and standard-deviation = 1 based on statistics collected from
 # the training set
+from PIL.Image import Image
+from torchvision import datasets
+
 data_transforms = {
     "train": transforms.Compose(
         [
@@ -48,3 +52,14 @@ data_transforms = {
         ]
     ),
 }
+
+
+class ImageFolderWithPaths(datasets.ImageFolder):
+    """Custom dataset that includes image file paths. Extends
+    torchvision.datasets.ImageFolder
+    """
+    def __getitem__(self, index):
+        original_tuple = super(ImageFolderWithPaths, self).__getitem__(index)
+        path = self.imgs[index][0]
+        tuple_with_path = (original_tuple + (path,))
+        return tuple_with_path

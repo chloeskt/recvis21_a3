@@ -1,22 +1,16 @@
-import sys
-import warnings
-
-from PIL.Image import Image
-from torch.utils.data import DataLoader
-from torchvision.transforms import transforms
-
-from src.data import ImageFolderWithPaths
-
-warnings.filterwarnings("ignore")
-
 import matplotlib.pyplot as plt
 import torch
-
-sys.path.append("/home/tuxae/MVA/recvis21_a3")
+from PIL import Image
 
 # Some basic setup:
 # Setup detectron2 logger
+from detectron2.model_zoo import model_zoo
 from detectron2.utils.logger import setup_logger
+from torch.utils.data import DataLoader
+from torchvision import datasets
+from torchvision.transforms import transforms
+
+from src.data import ImageFolderWithPaths
 
 setup_logger()
 
@@ -29,10 +23,10 @@ from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 
 BATCH_SIZE = 32
-DATA_PATH = "cropped_bird_dataset"
+DATA_PATH = "../cropped_bird_dataset"
 
 
-class BirdDetector:
+class BirdImageCropper:
     def __init__(self, data_path, batch_size):
         self.data_path = data_path
         self.batch_size = batch_size
@@ -41,59 +35,75 @@ class BirdDetector:
         # Set up for model
         # Define a Mask-R-CNN model in Detectron2
         cfg = get_cfg()
+        cfg.MODEL.DEVICE = "cpu"
         cfg.merge_from_file(
-            "./detectron2_repo/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
+            model_zoo.get_config_file(
+                "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
+            )
         )
         cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7  # Detection Threshold
         cfg.MODEL.ROI_HEADS.NMS = 0.4  # Non Maximum Suppression Threshold
-        cfg.MODEL.WEIGHTS = "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl"
+        cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(
+            "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
+        )
         return DefaultPredictor(cfg)
 
-    @staticmethod
-    def _check_if_directory_is_available():
-        if not os.path.isdir("../cropped_bird_dataset"):
+    def _check_if_directory_is_available(self):
+        if not os.path.isdir(self.data_path):
             print("copying the bird dataset to create the cropped dataset")
             os.system("cp -r ../bird_dataset/ ../cropped_bird_dataset")
 
+    def _check_reformat_image(self):
+        # Reformat weird images
+        for path, _, files in os.walk(self.data_path):
+            for file in files:
+                if file.endswith(".jpg"):
+                    i = plt.imread(os.path.join(path, file))
+                    if len(i.shape) == 2 or i.shape[2] != 3:
+                        print(file)
+                        i = Image.fromarray(i)
+                        i = i.convert("RGB")
+                        i.save(os.path.join(path, file))
+
     def get_birds_images_cropped(self):
         self._check_if_directory_is_available()
-
-        cuda = torch.cuda.is_available()
         model = self._initiate_detector()
-
-        if cuda:
-            model.cuda()
-
-        model.eval()
+        self._check_reformat_image()
 
         non_cropped_img = 0
         non_cropped_paths = []
         number_img = 0
 
         for state in ["train", "val", "test"]:
+
             dataloader = DataLoader(
                 ImageFolderWithPaths(
-                    "../" + self.data_path + "/ " + state + "_images",
-                    transform=transforms.ToTensor(),
+                    os.path.join(self.data_path, state + "_images"),
+                    transform=transforms.Compose(
+                        [
+                            transforms.Resize((128, 128)),
+                            transforms.ToTensor(),
+                        ]
+                    ),
                 ),
-                batch_size=self.batchsize,
+                batch_size=self.batch_size,
                 shuffle=False,
                 num_workers=0,
             )
 
-            # img_paths = []  # Stores image paths
-            img_detections = []  # Stores detections for each image index
+            for images, labels, paths in dataloader:
+                img_detections = []  # Stores detections for each image index
 
-            for _, _, paths in dataloader:
                 for img_path in paths:
                     img = cv2.imread(img_path)
                     with torch.no_grad():
                         detections = model(img)["instances"]
-                    # img_paths.append(img_path)
                     img_detections.append(detections)
 
                 # Save cropped images
                 for (path, detections) in zip(paths, img_detections):
+                    print(path)
+                    print("-----")
                     number_img += 1
                     img = np.array(Image.open(path))
 
@@ -125,6 +135,7 @@ class BirdDetector:
                             .cpu()
                             .numpy()
                         )
+
                         [x1, y1, x2, y2] = (
                             detections.pred_boxes[index_birds][bird]
                             .tensor[0]
@@ -139,18 +150,25 @@ class BirdDetector:
                         x2, y2 = np.minimum(x2 + 40, img.shape[1]), np.minimum(
                             y2 + 40, img.shape[0]
                         )
-                        img = img[
-                            int(np.ceil(y1)) : int(y2), int(np.ceil(x1)) : int(x2), :
-                        ]
 
-                        # Save generated image with detections
-                        # path = path.split("/")[-1]
-                        plt.imsave(
-                            path,
-                            img,
-                            dpi=1000,
-                        )
-                        plt.close()
+                        try:
+                            img = img[
+                                int(np.ceil(y1)): int(y2),
+                                int(np.ceil(x1)): int(x2),
+                                :,
+                            ]
+
+                            # Save generated image with detections
+                            # path = path.split("/")[-1]
+                            plt.imsave(
+                                path,
+                                img,
+                                dpi=1000,
+                            )
+                            plt.close()
+
+                        except IndexError:
+                            print("ERROR FOR IMAGE", path, img)
 
                     else:
                         # Flip the image if we are not able to detect the bird
