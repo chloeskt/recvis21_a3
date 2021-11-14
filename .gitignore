@@ -142,8 +142,11 @@ cython_debug/
 
 .DS_Store
 
+# Data, models and embeddings folders
 bird_dataset/
-
 experiment/
-
 cropped_bird_dataset/
+256_cropped_bird_dataset/
+299_cropped_bird_dataset/
+ResNext_embeddings/
+embeddings/
