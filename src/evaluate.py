@@ -5,13 +5,13 @@ import PIL.Image as Image
 
 import torch
 
-from model import Net
+from model import Classifier, Net
 
 parser = argparse.ArgumentParser(description="RecVis A3 evaluation script")
 parser.add_argument(
     "--data",
     type=str,
-    default="bird_dataset",
+    default="cropped_bird_dataset",
     metavar="D",
     help="folder where data is located. test_images/ need to be found in the folder",
 )
@@ -28,6 +28,13 @@ parser.add_argument(
     metavar="D",
     help="name of the output csv file",
 )
+parser.add_argument(
+    "--embedding_dim",
+    type=int,
+    default="2048",
+    metavar="E",
+    help="embedding dimension",
+)
 
 args = parser.parse_args()
 use_cuda = torch.cuda.is_available()
@@ -42,7 +49,7 @@ if use_cuda:
 else:
     print("Using CPU")
 
-from src.data import data_transforms
+from data import data_transforms
 
 test_dir = args.data + "/test_images/mistery_category"
 
@@ -58,7 +65,7 @@ output_file = open(args.outfile, "w")
 output_file.write("Id,Category\n")
 for f in tqdm(os.listdir(test_dir)):
     if "jpg" in f:
-        data = data_transforms(pil_loader(test_dir + "/" + f))
+        data = data_transforms["test"](pil_loader(test_dir + "/" + f))
         data = data.view(1, data.size(0), data.size(1), data.size(2))
         if use_cuda:
             data = data.cuda()

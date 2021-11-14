@@ -1,10 +1,10 @@
 import cv2
-import torch
 import matplotlib.pyplot as plt
+import torch
 from detectron2.data import MetadataCatalog
 from detectron2.utils.visualizer import Visualizer
 from torchvision.utils import make_grid
-import numpy as np
+
 
 # TODO: visualize the images where the model is wrong
 # visualize heatmap / activation map
@@ -57,15 +57,18 @@ def visualize_model(model, val_dataloader, device, num_images=12, figsize=(15, 1
                 if images_so_far == num_images:
                     return
 
-def visualize_bounding_boxes(model, images_path, cfg, figsize=(15,15)):
+
+def visualize_bounding_boxes(model, images_path, cfg, figsize=(15, 15)):
     num_images = len(images_path)
     fig = plt.figure(figsize=figsize)
     for i, path in enumerate(images_path):
         im = cv2.imread(path)
         outputs = model(im)
-        v = Visualizer(im[:, :, ::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=0.5)
+        v = Visualizer(
+            im[:, :, ::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=0.5
+        )
         out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-        ax = plt.subplot(4, num_images // 2, i+1)
+        ax = plt.subplot(4, num_images // 2, i + 1)
         ax.axis("off")
         ax.set_title("Bounding box detected")
         plt.imshow(out.get_image()[:, :, ::-1])
