@@ -5,10 +5,12 @@ import time
 
 import torch
 import torch.optim as optim
+import torch.nn as nn
 from torch.optim import lr_scheduler
 from torchvision import datasets
 
-# Training settings
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 parser = argparse.ArgumentParser(description="RecVis A3 training script")
 parser.add_argument(
     "--data",
@@ -32,7 +34,7 @@ parser.add_argument(
     help="number of epochs to train (default: 10)",
 )
 parser.add_argument(
-    "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)"
+    "--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.1)"
 )
 parser.add_argument(
     "--momentum",
@@ -56,10 +58,10 @@ parser.add_argument(
     help="Scheduler gamma (default: 0.1)",
 )
 parser.add_argument(
-    "--seed", type=int, default=1, metavar="S", help="random seed (default: 1)"
+    "--seed", type=int, default=0, metavar="S", help="random seed (default: 0)"
 )
 parser.add_argument(
-    "--log-interval",
+    "--log_interval",
     type=int,
     default=10,
     metavar="N",
@@ -75,6 +77,8 @@ parser.add_argument(
 args = parser.parse_args()
 use_cuda = torch.cuda.is_available()
 torch.manual_seed(args.seed)
+# Training settings
+
 
 # Create experiment folder
 if not os.path.isdir(args.experiment):
@@ -103,6 +107,7 @@ val_loader = torch.utils.data.DataLoader(
 from src import Net
 
 model = Net()
+
 if use_cuda:
     print("Using GPU")
     model.cuda()
@@ -113,77 +118,65 @@ else:
 # Add weight decay, early stopping, LRScheduler
 # Add gradient clipping
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+optimizer = optim.SGD(
+    # model.model.classifier.parameters(),
+    model.parameters(),
+    lr=args.lr,
+    momentum=args.momentum,
+)
+lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs)
 
 # optimizer = torch.optim.Adam(
 #     model.parameters(),
 #     lr=args.lr,
-#     weight_decay=0.2,
+#     weight_decay=3e-4,
 # )
 
 # Decay LR by a factor of 0.1 every 10 epochs
-scheduler = lr_scheduler.StepLR(
-    optimizer, step_size=args.scheduler_step, gamma=args.gamma
-)
+# scheduler = lr_scheduler.StepLR(
+#     optimizer, step_size=args.scheduler_step, gamma=args.gamma
+# )
+
+criterion = torch.nn.CrossEntropyLoss()
 
 
 def train(epoch):
     model.train()
-    train_loss = 0
-    correct = 0
-    for batch_idx, (data, target) in enumerate(train_loader):
-        if use_cuda:
-            data, target = data.cuda(), target.cuda()
+    for batch_idx, (data, labels) in enumerate(train_loader):
+        data, labels = data.to(device), labels.to(device)
         optimizer.zero_grad()
-        output = model(data)
-        criterion = torch.nn.CrossEntropyLoss(reduction="mean")
-        loss = criterion(output, target)
-        # sum up batch loss
-        train_loss += loss.data.item()
-
+        # forward
+        preds = model(data)
+        loss = criterion(preds, labels)
         loss.backward()
         optimizer.step()
-        scheduler.step()
-
-        # get the index of the max log-probability
-        pred = output.data.max(1, keepdim=True)[1]
-        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
-
+        lr_scheduler.step()
         if batch_idx % args.log_interval == 0:
             print(
-                "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
-                    epoch,
+                "[{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
                     batch_idx * len(data),
                     len(train_loader.dataset),
                     100.0 * batch_idx / len(train_loader),
                     loss.data.item(),
                 )
             )
-            # print(
-            #     "Train current overall loss: ",
-            #     train_loss / len(train_loader.dataset),
-            #     "\n",
-            #     "Train current accuracy: ",
-            #     100.0 * correct / len(train_loader.dataset),
-            # )
 
 
 def validation():
     model.eval()
     validation_loss = 0
     correct = 0
-    for data, target in val_loader:
-        if use_cuda:
-            data, target = data.cuda(), target.cuda()
-        output = model(data)
-        # sum up batch loss
-        criterion = torch.nn.CrossEntropyLoss(reduction="mean")
-        validation_loss += criterion(output, target).data.item()
-        # get the index of the max log-probability
-        pred = output.data.max(1, keepdim=True)[1]
-        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
-
-    validation_loss /= len(val_loader.dataset)
+    with torch.no_grad():
+        for data, labels in val_loader:
+            data, labels = data.to(device), labels.to(device)
+            preds = model(data)
+            # sum up batch loss
+            validation_loss += criterion(preds, labels).data.item()
+            m = nn.Softmax(dim=1)
+            probs = m(preds)
+            preds_classes = probs.max(1, keepdim=True)[1]
+            correct += preds_classes.eq(labels.data.view_as(preds_classes)).sum()
+        validation_loss /= len(val_loader.dataset)
     print(
         "\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)".format(
             validation_loss,
@@ -194,92 +187,11 @@ def validation():
     )
 
 
-def train_model(model, optimizer, scheduler, num_epochs=25):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    since = time.time()
-    best_acc = 0.0
-
-    for epoch in range(num_epochs):
-        print("Epoch {}/{}".format(epoch, num_epochs - 1))
-        print("-" * 10)
-
-        # Each epoch has a training and validation phase
-        for phase in ["train", "val"]:
-            if phase == "train":
-                dataloader = train_loader
-                model.train()  # Set model to training mode
-            else:
-                dataloader = val_loader
-                model.eval()  # Set model to evaluate mode
-
-            running_loss = 0.0
-            running_corrects = 0
-
-            # Iterate over data.
-            for inputs, labels in dataloader:
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-
-                # zero the parameter gradients
-                optimizer.zero_grad()
-
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == "train"):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    criterion = torch.nn.CrossEntropyLoss(reduction="mean")
-                    loss = criterion(outputs, labels)
-                    running_loss += loss.data.item()
-
-                    # get the index of the max log-probability
-                    pred = outputs.data.max(1, keepdim=True)[1]
-                    running_corrects += pred.eq(labels.data.view_as(pred)).cpu().sum()
-
-                    # backward + optimize only if in training phase
-                    if phase == "train":
-                        loss.backward()
-                        optimizer.step()
-                        scheduler.step()
-
-                # # statistics
-                # running_loss += loss.item() * inputs.size(0)
-                # running_corrects += torch.sum(preds == labels.data)
-
-            epoch_loss = running_loss / len(dataloader.dataset)
-            epoch_acc = running_corrects.double() / len(dataloader.dataset)
-
-            print("{} Loss: {:.4f} Acc: {:.4f}".format(phase, epoch_loss, epoch_acc))
-
-            # deep copy the model
-            if phase == "val" and epoch_acc > best_acc:
-                print("Accucary is better: ", epoch_acc)
-                best_acc = epoch_acc
-                model_file = args.experiment + "/model_" + "acc_" + str(best_acc.item()) + ".pth"
-                torch.save(model.state_dict(), model_file)
-                best_model_wts = copy.deepcopy(model.state_dict())
-
-        print()
-
-    time_elapsed = time.time() - since
-    print(
-        "Training complete in {:.0f}m {:.0f}s".format(
-            time_elapsed // 60, time_elapsed % 60
-        )
-    )
-    print("Best val Acc: {:4f}".format(best_acc))
-
-    # load best model weights
-    model.load_state_dict(best_model_wts)
-    return model
-
-
 for epoch in range(1, args.epochs + 1):
-    # train(epoch)
-    # validation()
+    train(epoch)
+    validation()
 
-    train_model(model, optimizer, scheduler, num_epochs=args.epochs)
+    # train_model(model, optimizer, scheduler, num_epochs=args.epochs)
 
     model_file = args.experiment + "/model_" + str(epoch) + ".pth"
     torch.save(model.state_dict(), model_file)

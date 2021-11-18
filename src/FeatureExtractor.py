@@ -23,10 +23,11 @@ from src.data import ImageFolderWithPaths
 # EMBEDDINGS_PATH = "../embeddings"
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+torch.manual_seed(0)
 
 class FeatureExtractor(nn.Module):
     def __init__(
-        self, model_name, data_path, dest_path, batch_size, data_transforms, device
+        self, model_name, data_path, dest_path, batch_size, data_transforms, device, custom_model
     ):
         super(FeatureExtractor, self).__init__()
         self.model_name = model_name
@@ -35,6 +36,7 @@ class FeatureExtractor(nn.Module):
         self.batch_size = batch_size
         self.data_transforms = data_transforms
         self.device = device
+        self.custom_model = custom_model
 
     def _get_model(self):
         if self.model_name == "ResNext":
@@ -55,6 +57,16 @@ class FeatureExtractor(nn.Module):
             self.model.eval()
             self.data_path = "../299_cropped_bird_dataset"
             self.dest_path = "../Inceptionv3_embeddings"
+
+        # elif self.model_name == "Custom":
+        #     self.model = CustomInceptionv3(final_pooling=1)
+        #     inception_weights = "../inceptionv3_experiment/NEW_inceptionv3_model_25.pth"
+        #     self.model.load_state_dict(torch.load(inception_weights))
+        #     self.model.eval()
+
+        elif self.custom_model is not None:
+            self.model = self.custom_model
+            self.model.eval()
 
     def _slice_model(self, from_layer=None, to_layer=None):
         return nn.Sequential(*list(self.model.children())[from_layer:to_layer])
@@ -81,13 +93,30 @@ class FeatureExtractor(nn.Module):
         self.extract_state_embeddings(self.model, "train")
         self.extract_state_embeddings(self.model, "val")
         test_paths = self.extract_state_embeddings(self.model, "test")
-        test_paths = [
-            path.replace(".jpg", "").replace(
-                "../cropped_bird_dataset/test_images/mistery_category/", ""
-            )
-            for path in test_paths
-        ]
-        with open("../experiment/test_paths.txt", "w", encoding="utf-8") as file:
+        if self.model_name == "Inceptionv3":
+            test_paths = [
+                path.replace(".jpg", "").replace(
+                    "../299_cropped_bird_dataset/test_images/mistery_category/", ""
+                )
+                for path in test_paths
+            ]
+        elif self.model_name == "ResNext":
+            test_paths = [
+                path.replace(".jpg", "").replace(
+                    "../256_cropped_bird_dataset/test_images/mistery_category/", ""
+                )
+                for path in test_paths
+            ]
+        else:
+            test_paths = [
+                path.replace(".jpg", "").replace(
+                    "../cropped_bird_dataset/test_images/mistery_category/", ""
+                )
+                for path in test_paths
+            ]
+
+        test_path_filepath = os.path.join(self.dest_path, "test_paths.txt")
+        with open(test_path_filepath, "w", encoding="utf-8") as file:
             file.write("\n".join(test_paths))
 
     def extract_state_embeddings(self, feature_model, state):
