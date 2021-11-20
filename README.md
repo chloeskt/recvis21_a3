@@ -23,6 +23,18 @@ Take a look at the notebook ``EDA.ipynb``.
 
 The overall method and results are described in the ```report.pdf```.
 
+#### Create virtual environment and install requirements
+
+```python 
+python3 -m venv env
+source env/bin/activate
+```
+
+```python
+pip install torch # necessary to install a first version of it because of Detectron2
+pip install -r requirements.txt
+```
+
 #### Run Mask R-CNN on all images and save newly cropped data
 
 ```python
