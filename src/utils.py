@@ -6,11 +6,6 @@ from detectron2.utils.visualizer import Visualizer
 from torchvision.utils import make_grid
 
 
-# TODO: visualize the images where the model is wrong
-# visualize heatmap / activation map
-# visualize the images where the model is right
-
-
 def show_images(train_dataloader):
     for image, label in train_dataloader:
         fig, ax = plt.subplots(figsize=(15, 15))

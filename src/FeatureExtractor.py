@@ -2,35 +2,30 @@ import os
 
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
-import torchvision.models as models
 from tqdm import tqdm
 
 from src.CustomInceptionv3 import CustomInceptionv3
+from src.CustomInceptionv3ResNet152 import CustomInceptionv3ResNet152
 from src.data import ImageFolderWithPaths
-
-#MODEL = torch.hub.load("facebookresearch/WSL-Images", "resnext101_32x48d_wsl")
-# BATCH_SIZE = 32
-# DATA_PATH = "../cropped_bird_dataset"
-# DATA_TRANSFORMS = transforms.Compose(
-#     [
-#         transforms.transforms.Resize((224, 224)),
-#         transforms.RandomHorizontalFlip(p=0.2),
-#         transforms.ToTensor(),
-#         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-#     ]
-# )
-# EMBEDDINGS_PATH = "../embeddings"
-# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 torch.manual_seed(0)
 
+
 class FeatureExtractor(nn.Module):
     def __init__(
-        self, model_name, data_path, dest_path, batch_size, data_transforms, device, custom_model
+        self,
+        model_name,
+        model_path,
+        data_path,
+        dest_path,
+        batch_size,
+        data_transforms,
+        device,
+        custom_model=False,
     ):
         super(FeatureExtractor, self).__init__()
         self.model_name = model_name
+        self.model_path = model_path
         self.data_path = data_path
         self.dest_path = dest_path
         self.batch_size = batch_size
@@ -40,10 +35,12 @@ class FeatureExtractor(nn.Module):
 
     def _get_model(self):
         if self.model_name == "ResNext":
-            self.model = torch.hub.load("facebookresearch/WSL-Images", "resnext101_32x48d_wsl")
+            self.model = torch.hub.load(
+                "facebookresearch/WSL-Images", "resnext101_32x48d_wsl"
+            )
             self.model.eval()
             self.model = self._slice_model(to_layer=-1).to(self.device)
-            self.data_path = "../cropped_bird_dataset"
+            self.data_path = "../299_cropped_bird_dataset"
             self.dest_path = "../ResNext_embeddings"
         elif self.model_name == "Inceptionv3":
             print("choosing Inception v3 model")
@@ -52,7 +49,7 @@ class FeatureExtractor(nn.Module):
                 inception_weights = "/Users/chloesekkat/.cache/torch/hub/checkpoints/inception_v3_google-0cc3c7bd.pth"
                 self.model.load_state_dict(torch.load(inception_weights))
             except FileNotFoundError:
-                inception_weights = "/home/tuxae/.cache/torch/hub/checkpoints/inception_v3_google-0cc3c7bd.pth"
+                inception_weights = "/home/kaliayev/.cache/torch/hub/checkpoints/inception_v3_google-0cc3c7bd.pth"
                 self.model.load_state_dict(torch.load(inception_weights))
             self.model.eval()
             self.data_path = "../299_cropped_bird_dataset"
@@ -64,9 +61,14 @@ class FeatureExtractor(nn.Module):
         #     self.model.load_state_dict(torch.load(inception_weights))
         #     self.model.eval()
 
-        elif self.custom_model is not None:
-            self.model = self.custom_model
+        elif self.custom_model:
+            print("choosing custom Inceptionv3 / ResNet152model")
+            self.model = CustomInceptionv3ResNet152()
+            self.model.load_state_dict(torch.load(self.model_path, map_location=torch.device(self.device)))
+            self.model = self._slice_model(to_layer=-1).to(self.device)
             self.model.eval()
+            self.data_path = "../299_cropped_bird_dataset"
+            self.dest_path = "../Custom_embeddings"
 
     def _slice_model(self, from_layer=None, to_layer=None):
         return nn.Sequential(*list(self.model.children())[from_layer:to_layer])

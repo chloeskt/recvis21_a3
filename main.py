@@ -1,11 +1,9 @@
 import argparse
-import copy
 import os
-import time
 
 import torch
-import torch.optim as optim
 import torch.nn as nn
+import torch.optim as optim
 from torch.optim import lr_scheduler
 from torchvision import datasets
 
@@ -140,7 +138,7 @@ lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs
 criterion = torch.nn.CrossEntropyLoss()
 
 
-def train(epoch):
+def train(model, epoch):
     model.train()
     for batch_idx, (data, labels) in enumerate(train_loader):
         data, labels = data.to(device), labels.to(device)
@@ -151,7 +149,7 @@ def train(epoch):
         loss.backward()
         optimizer.step()
         lr_scheduler.step()
-        if batch_idx % args.log_interval == 0:
+        if batch_idx % 10 == 0:
             print(
                 "[{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
                     batch_idx * len(data),
@@ -162,7 +160,7 @@ def train(epoch):
             )
 
 
-def validation():
+def validation(model):
     model.eval()
     validation_loss = 0
     correct = 0
@@ -185,20 +183,13 @@ def validation():
             100.0 * correct / len(val_loader.dataset),
         )
     )
+    return 100.0 * correct / len(val_loader.dataset)
 
 
 for epoch in range(1, args.epochs + 1):
-    train(epoch)
-    validation()
-
-    # train_model(model, optimizer, scheduler, num_epochs=args.epochs)
-
-    model_file = args.experiment + "/model_" + str(epoch) + ".pth"
-    torch.save(model.state_dict(), model_file)
-    print(
-        "Saved model to "
-        + model_file
-        + ". You can run `python evaluate.py --model "
-        + model_file
-        + "` to generate the Kaggle formatted csv file\n"
-    )
+    print("################################################# EPOCH", epoch)
+    train(model, epoch)
+    val_acc = validation(model)
+    if val_acc >= 93:
+        model_file = "../experiments" + "/model_" + str(val_acc) + ".pth"
+        torch.save(model.state_dict(), model_file)

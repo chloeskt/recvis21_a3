@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import torch
 from PIL import Image, ImageOps
-
 # Some basic setup:
 # Setup detectron2 logger
 from detectron2.model_zoo import model_zoo
@@ -72,35 +71,47 @@ class BirdImageCropper:
             non_cropped_paths = []
             number_img = 0
 
-            dataloader = DataLoader(
-                ImageFolderWithPaths(
-                    os.path.join(self.source_data_path, state + "_images"),
-                    transform=transforms.Compose(
-                        [
-                            # (256,256)
-                            transforms.Resize((299, 299)),
-                            transforms.RandomApply(
-                                torch.nn.ModuleList(
-                                    [
-                                        transforms.ColorJitter(
-                                            brightness=0.3, contrast=0.3, saturation=0.1, hue=0.4
-                                        ),
-                                        #transforms.RandomCrop(size=()),
-                                        #transforms.RandomHorizontalFlip(p=0.5),
-                                        transforms.RandomPerspective(distortion_scale=0.4, p=0.9),
-                                        # transforms.Grayscale(num_output_channels=3),
-                                    ]
+            if state != "test":
+                dataloader = DataLoader(
+                    ImageFolderWithPaths(
+                        os.path.join(self.source_data_path, state + "_images"),
+                        transform=transforms.Compose(
+                            [
+                                # (256,256)
+                                transforms.Resize((299, 299)),
+                                transforms.RandomHorizontalFlip(0.3),
+                                transforms.RandomRotation(degrees=(-45, 45)),
+                                transforms.RandomPerspective(distortion_scale=0.4, p=0.5),
+                                transforms.ToTensor(),
+                                transforms.Normalize(
+                                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
                                 ),
-                                p=0.5,
-                            ),
-                            transforms.ToTensor(),
-                        ]
+                            ]
+                        ),
                     ),
-                ),
-                batch_size=self.batch_size,
-                shuffle=False,
-                num_workers=0,
-            )
+                    batch_size=self.batch_size,
+                    shuffle=False,
+                    num_workers=0,
+                )
+            else:
+                dataloader = DataLoader(
+                    ImageFolderWithPaths(
+                        os.path.join(self.source_data_path, state + "_images"),
+                        transform=transforms.Compose(
+                            [
+                                # (256,256)
+                                transforms.Resize((299, 299)),
+                                transforms.ToTensor(),
+                                transforms.Normalize(
+                                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                                ),
+                            ]
+                        ),
+                    ),
+                    batch_size=self.batch_size,
+                    shuffle=False,
+                    num_workers=0,
+                )
 
             for images, labels, paths in dataloader:
                 for img_path in paths:
@@ -145,15 +156,15 @@ class BirdImageCropper:
 
                         bird = int(
                             torch.max(detections.scores[index_birds], 0)[1]
-                            .cpu()
-                            .numpy()
+                                .cpu()
+                                .numpy()
                         )
 
                         [x1, y1, x2, y2] = (
                             detections.pred_boxes[index_birds][bird]
-                            .tensor[0]
-                            .cpu()
-                            .numpy()
+                                .tensor[0]
+                                .cpu()
+                                .numpy()
                         )
 
                         # If we are able to detect the bird, enlarge the bounding box and generate a new image
@@ -166,10 +177,10 @@ class BirdImageCropper:
 
                         try:
                             img = img[
-                                int(np.ceil(y1)) : int(y2),
-                                int(np.ceil(x1)) : int(x2),
-                                :,
-                            ]
+                                  int(np.ceil(y1)): int(y2),
+                                  int(np.ceil(x1)): int(x2),
+                                  :,
+                                  ]
 
                             # Save generated image with detections
                             print("SAVING image at ", dest_path)
@@ -182,6 +193,12 @@ class BirdImageCropper:
 
                         except IndexError:
                             print("ERROR FOR IMAGE", img_path, img)
+                            plt.imsave(
+                                dest_path,
+                                img,
+                                dpi=1000,
+                            )
+                            plt.close()
 
                     else:
                         # Flip the image if we are not able to detect the bird

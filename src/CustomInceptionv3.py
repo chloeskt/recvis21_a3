@@ -1,12 +1,12 @@
-from torchvision.models import Inception3
 import torch.nn.functional as F
+from torchvision.models import Inception3
 
 
 class CustomInceptionv3(Inception3):
     def __init__(self, final_pooling=None, transform_input=False):
+        super(CustomInceptionv3, self).__init__()
         self.transform_input = transform_input
         self.final_pooling = final_pooling
-        super(CustomInceptionv3, self).__init__()
 
     def forward(self, x):
         if self.transform_input:

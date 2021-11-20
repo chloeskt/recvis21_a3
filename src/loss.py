@@ -50,8 +50,12 @@ class HardBatchMiningTripletLoss(torch.nn.Module):
         for i in range(n):
             current_label = targets[i].item()
             mask = targets.eq(current_label)
-            distance_positive = torch.max(torch.masked_select(distance_matrix[i, :], mask))
-            distance_negative = torch.min(torch.masked_select(distance_matrix[i, :], torch.logical_not(mask)))
+            distance_positive = torch.max(
+                torch.masked_select(distance_matrix[i, :], mask)
+            )
+            distance_negative = torch.min(
+                torch.masked_select(distance_matrix[i, :], torch.logical_not(mask))
+            )
             distance_positive_pairs.append(distance_positive)
             distance_negative_pairs.append(distance_negative)
 
@@ -83,14 +87,14 @@ class CombinedLoss(object):
         if self.weight_triplet > 0.0:
             loss_t = self.triplet_loss(features, gt_pids) * self.weight_triplet
             loss += loss_t
-            loss_summary['Triplet Loss'] = loss_t
+            loss_summary["Triplet Loss"] = loss_t
 
         if self.weight_ce > 0.0:
             loss_ce = self.cross_entropy(logits, gt_pids) * self.weight_ce
             loss += loss_ce
-            loss_summary['CE Loss'] = loss_ce
+            loss_summary["CE Loss"] = loss_ce
 
-        loss_summary['Loss'] = loss
+        loss_summary["Loss"] = loss
         return loss, loss_summary
 
 

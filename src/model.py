@@ -6,17 +6,6 @@ from torchvision import models
 nclasses = 20
 
 
-# TODO: clear visualisation of the images
-# probably need to first detect the birds in the image
-# take only cropped bird dataset ?
-
-# TODO: try auto-encoder structure
-# Add spatial batch norm
-# Use pre-trained model e.g
-# alexnet, VGG, ResNet, MobileNet
-# https://pytorch.org/vision/stable/models.html#classification
-
-
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -134,11 +123,59 @@ class Net(nn.Module):
         num_features2 = self.res.fc.in_features
         self.res.fc = nn.Linear(num_features2, 512)
 
-        lin3 = nn.Linear(1024, nclasses)
+        lin3 = nn.Linear(1024, num_classes)
         self.fc = lin3
 
     def forward(self, input):
         x1 = self.res(input)
         x2 = self.inc(input)
         x = torch.cat((x1, x2), 1)
+        return self.fc(x)
+
+
+class Net(nn.Module):
+    def __init__(self, num_classes=20):
+        super(Net, self).__init__()
+
+        self.res = models.resnet152(pretrained=True)
+
+        for param in self.res.conv1.parameters():
+            param.requires_grad = True
+        for param in self.res.bn1.parameters():
+            param.requires_grad = True
+        for param in self.res.layer1.parameters():
+            param.requires_grad = True
+        for param in self.res.layer2.parameters():
+            param.requires_grad = True
+        for param in self.res.layer3.parameters():
+            param.requires_grad = True
+
+        self.res.avgpool = nn.AvgPool2d(10)
+        num_features2 = self.res.fc.in_features
+        self.res.fc = nn.Linear(num_features2, 1024)
+
+        lin3 = nn.Linear(1024, num_classes)
+        self.fc = lin3
+
+    def forward(self, input):
+        x = self.res(input)
+        return self.fc(x)
+
+class Net(nn.Module):
+    def __init__(self, num_classes=20):
+        super(Net, self).__init__()
+
+        self.inc = models.inception_v3(pretrained=True)
+
+        for param in self.inc.parameters():
+            param.requires_grad = True
+
+        self.inc.aux_logits = False
+        num_features = self.inc.fc.in_features
+        self.inc.fc = nn.Linear(num_features, 1024)
+        lin3 = nn.Linear(1024, num_classes)
+        self.fc = lin3
+
+    def forward(self, input):
+        x = self.inc(input)
         return self.fc(x)
