@@ -75,8 +75,6 @@ parser.add_argument(
 args = parser.parse_args()
 use_cuda = torch.cuda.is_available()
 torch.manual_seed(args.seed)
-# Training settings
-
 
 # Create experiment folder
 if not os.path.isdir(args.experiment):
@@ -112,28 +110,12 @@ if use_cuda:
 else:
     print("Using CPU")
 
-# TODO: use another optimizer such as Adam and changes the parameters
-# Add weight decay, early stopping, LRScheduler
-# Add gradient clipping
-
 optimizer = optim.SGD(
-    # model.model.classifier.parameters(),
     model.parameters(),
     lr=args.lr,
     momentum=args.momentum,
 )
 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs)
-
-# optimizer = torch.optim.Adam(
-#     model.parameters(),
-#     lr=args.lr,
-#     weight_decay=3e-4,
-# )
-
-# Decay LR by a factor of 0.1 every 10 epochs
-# scheduler = lr_scheduler.StepLR(
-#     optimizer, step_size=args.scheduler_step, gamma=args.gamma
-# )
 
 criterion = torch.nn.CrossEntropyLoss()
 

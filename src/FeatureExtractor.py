@@ -5,7 +5,6 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from src.CustomInceptionv3 import CustomInceptionv3
-from src.CustomInceptionv3ResNet152 import CustomInceptionv3ResNet152
 from src.data import ImageFolderWithPaths
 
 torch.manual_seed(0)
@@ -21,7 +20,6 @@ class FeatureExtractor(nn.Module):
         batch_size,
         data_transforms,
         device,
-        custom_model=False,
     ):
         super(FeatureExtractor, self).__init__()
         self.model_name = model_name
@@ -31,7 +29,6 @@ class FeatureExtractor(nn.Module):
         self.batch_size = batch_size
         self.data_transforms = data_transforms
         self.device = device
-        self.custom_model = custom_model
 
     def _get_model(self):
         if self.model_name == "ResNext":
@@ -46,35 +43,20 @@ class FeatureExtractor(nn.Module):
             print("choosing Inception v3 model")
             self.model = CustomInceptionv3(final_pooling=1)
             try:
-                inception_weights = "/Users/chloesekkat/.cache/torch/hub/checkpoints/inception_v3_google-0cc3c7bd.pth"
-                self.model.load_state_dict(torch.load(inception_weights))
-            except FileNotFoundError:
                 inception_weights = "/home/kaliayev/.cache/torch/hub/checkpoints/inception_v3_google-0cc3c7bd.pth"
                 self.model.load_state_dict(torch.load(inception_weights))
+            except FileNotFoundError:
+                print("You must change the path to the `inception_weights`")
+                raise
+
             self.model.eval()
             self.data_path = "../299_cropped_bird_dataset"
             self.dest_path = "../Inceptionv3_embeddings"
-
-        # elif self.model_name == "Custom":
-        #     self.model = CustomInceptionv3(final_pooling=1)
-        #     inception_weights = "../inceptionv3_experiment/NEW_inceptionv3_model_25.pth"
-        #     self.model.load_state_dict(torch.load(inception_weights))
-        #     self.model.eval()
-
-        elif self.custom_model:
-            print("choosing custom Inceptionv3 / ResNet152model")
-            self.model = CustomInceptionv3ResNet152()
-            self.model.load_state_dict(torch.load(self.model_path, map_location=torch.device(self.device)))
-            self.model = self._slice_model(to_layer=-1).to(self.device)
-            self.model.eval()
-            self.data_path = "../299_cropped_bird_dataset"
-            self.dest_path = "../Custom_embeddings"
 
     def _slice_model(self, from_layer=None, to_layer=None):
         return nn.Sequential(*list(self.model.children())[from_layer:to_layer])
 
     def _get_dataloader(self, state):
-        # Train
         dataloader = torch.utils.data.DataLoader(
             ImageFolderWithPaths(
                 self.data_path + f"/{state}_images", transform=self.data_transforms

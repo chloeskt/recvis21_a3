@@ -12,15 +12,14 @@ torch.manual_seed(0)
 
 class FeatureExtractorTwoHeads(nn.Module):
     def __init__(
-            self,
-            model_name,
-            model_path,
-            data_path,
-            dest_path,
-            batch_size,
-            data_transforms,
-            device,
-            custom_model=False,
+        self,
+        model_name,
+        model_path,
+        data_path,
+        dest_path,
+        batch_size,
+        data_transforms,
+        device,
     ):
         super(FeatureExtractorTwoHeads, self).__init__()
         self.model_name = model_name
@@ -30,7 +29,6 @@ class FeatureExtractorTwoHeads(nn.Module):
         self.batch_size = batch_size
         self.data_transforms = data_transforms
         self.device = device
-        self.custom_model = custom_model
 
     def _get_models(self):
         self.res = torch.hub.load(
@@ -41,11 +39,12 @@ class FeatureExtractorTwoHeads(nn.Module):
 
         self.inc = CustomInceptionv3(final_pooling=1)
         try:
-            inception_weights = "/Users/chloesekkat/.cache/torch/hub/checkpoints/inception_v3_google-0cc3c7bd.pth"
-            self.inc.load_state_dict(torch.load(inception_weights))
-        except FileNotFoundError:
             inception_weights = "/home/kaliayev/.cache/torch/hub/checkpoints/inception_v3_google-0cc3c7bd.pth"
             self.inc.load_state_dict(torch.load(inception_weights))
+        except FileNotFoundError:
+            print("You must change the path to the `inception_weights`")
+            raise
+
         self.inc.to(self.device)
         self.inc.eval()
 
@@ -53,7 +52,6 @@ class FeatureExtractorTwoHeads(nn.Module):
         return nn.Sequential(*list(self.res.children())[from_layer:to_layer])
 
     def _get_dataloader(self, state):
-        # Train
         dataloader = torch.utils.data.DataLoader(
             ImageFolderWithPaths(
                 self.data_path + f"/{state}_images", transform=self.data_transforms
