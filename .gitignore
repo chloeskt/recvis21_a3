@@ -146,7 +146,7 @@ cython_debug/
 bird_dataset/
 experiment/
 cropped_bird_dataset/
-256_cropped_bird_dataset/
 299_cropped_bird_dataset/
 ResNext_embeddings/
-embeddings/
+Inceptionv3_embeddings/
+Global_embeddings/
