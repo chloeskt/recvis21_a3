@@ -15,23 +15,42 @@ pip install -r requirements.txt
 We will be using a dataset containing 200 different classes of birds adapted from the [CUB-200-2011 dataset](http://www.vision.caltech.edu/visipedia/CUB-200-2011.html).
 Download the training/validation/test images from [here](https://www.di.ens.fr/willow/teaching/recvis18orig/assignment3/bird_dataset.zip). The test image labels are not provided.
 
-#### Training and validating your model
-Run the script `main.py` to train your model.
+#### Small EDA on the data
 
-Modify `main.py`, `model.py` and `data.py` for your assignment, with an aim to make the validation score better.
+Take a look at the notebook ``EDA.ipynb``.
 
-- By default the images are loaded and resized to 64x64 pixels and normalized to zero-mean and standard deviation of 1. See data.py for the `data_transforms`.
+#### Report
 
-#### Evaluating your model on the test set
+The overall method and results are described in the ```report.pdf```.
 
-As the model trains, model checkpoints are saved to files such as `model_x.pth` to the current working directory.
-You can take one of the checkpoints and run:
+#### Run Mask R-CNN on all images and save newly cropped data
 
-```
-python evaluate.py --data [data_dir] --model [model_file]
+```python
+python3 -m main_detector.py
 ```
 
-That generates a file `kaggle.csv` that you can upload to the private kaggle competition website.
+#### Run feature extractor to get 2048-feature vector for each image
+
+```python
+python3 -m main_feature_extractor.py
+```
+
+Examples on how to use these embeddings can be found in the ``notebooks`` demo.
+
+### Train the selected model on train set and evaluate it on val set
+
+This script will train the defined model without previously computed embeddings.
+```python
+python3 -m main_classifier_without_embeddings.py
+```
+
+### Train the selected model using  Cross Validation
+
+Using cross validation (CV) to train the selected model.
+
+```python
+python3 -m main_kfolds.py
+```
 
 #### Acknowledgments
 Adapted from Rob Fergus and Soumith Chintala https://github.com/soumith/traffic-sign-detection-homework.<br/>
