@@ -12,12 +12,10 @@ from src.data import ImageFolderWithPaths
 
 setup_logger()
 
-# import some common libraries
 import numpy as np
 import os
 import cv2
 
-# import some common detectron2 utilities
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 
@@ -33,8 +31,6 @@ class BirdImageCropper:
         self.batch_size = batch_size
 
     def _initiate_detector(self):
-        # Set up for model
-        # Define a Mask-R-CNN model in Detectron2
         cfg = get_cfg()
         cfg.MODEL.DEVICE = "cpu"
         cfg.merge_from_file(
@@ -77,7 +73,6 @@ class BirdImageCropper:
                         os.path.join(self.source_data_path, state + "_images"),
                         transform=transforms.Compose(
                             [
-                                # (256,256)
                                 transforms.Resize((299, 299)),
                                 transforms.RandomHorizontalFlip(0.3),
                                 transforms.RandomRotation(degrees=(-45, 45)),
@@ -99,7 +94,6 @@ class BirdImageCropper:
                         os.path.join(self.source_data_path, state + "_images"),
                         transform=transforms.Compose(
                             [
-                                # (256,256)
                                 transforms.Resize((299, 299)),
                                 transforms.ToTensor(),
                                 transforms.Normalize(
@@ -132,23 +126,20 @@ class BirdImageCropper:
 
                     number_img += 1
                     img = np.array(Image.open(img_path))
-                    # Bounding boxes and labels of detections
                     if len(detections.scores) > 0:
-                        # Get the most probable bird prediction bounding box
                         index_birds = np.where(
                             detections.pred_classes.cpu().numpy() == 14
                         )[
                             0
-                        ]  # 14 is the default class number for bird
+                        ]  # 14 = class number for bird
                         if len(index_birds) == 0:
-                            # Flip the image if we are not able to detect the bird
                             non_cropped_img += 1
                             non_cropped_paths.append(img_path)
 
                             print("SAVING NON-CROPPED image at ", dest_path)
                             plt.imsave(
                                 dest_path,
-                                np.array(ImageOps.mirror(Image.fromarray(img))),
+                                np.array(Image.fromarray(img)),
                                 dpi=1000,
                             )
                             plt.close()
@@ -167,7 +158,6 @@ class BirdImageCropper:
                                 .numpy()
                         )
 
-                        # If we are able to detect the bird, enlarge the bounding box and generate a new image
                         x1, y1 = np.maximum(0, int(x1) - 20), np.maximum(
                             0, int(y1) - 20
                         )
@@ -182,7 +172,6 @@ class BirdImageCropper:
                                   :,
                                   ]
 
-                            # Save generated image with detections
                             print("SAVING image at ", dest_path)
                             plt.imsave(
                                 dest_path,
@@ -201,14 +190,13 @@ class BirdImageCropper:
                             plt.close()
 
                     else:
-                        # Flip the image if we are not able to detect the bird
                         non_cropped_paths.append(img_path)
                         non_cropped_img += 1
 
                         print("SAVING NON-CROPPED image at ", dest_path)
                         plt.imsave(
                             dest_path,
-                            np.array(ImageOps.mirror(Image.fromarray(img))),
+                            np.array(Image.fromarray(img)),
                             dpi=1000,
                         )
                         plt.close()
