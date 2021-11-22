@@ -2,12 +2,15 @@
 
 ### Assignment 3: Image classification 
 
-#### Requirements
-1. Install PyTorch from http://pytorch.org
+#### Create virtual environment and install requirements
 
-2. Run the following command to install additional dependencies
+```python 
+python3 -m venv env
+source env/bin/activate
+```
 
-```bash
+```python
+pip install torch # necessary to install a first version of it because of Detectron2
 pip install -r requirements.txt
 ```
 
@@ -22,18 +25,6 @@ Take a look at the notebook ``EDA.ipynb``.
 #### Report
 
 The overall method and results are described in the ```report.pdf```.
-
-#### Create virtual environment and install requirements
-
-```python 
-python3 -m venv env
-source env/bin/activate
-```
-
-```python
-pip install torch # necessary to install a first version of it because of Detectron2
-pip install -r requirements.txt
-```
 
 #### Run Mask R-CNN on all images and save newly cropped data
 
